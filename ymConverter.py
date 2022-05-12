@@ -37,19 +37,18 @@ def processYMFile(inputFilename, outputFilename):
         with open(inputFilename, "rb") as inputFile:
             # Read Header
             header = inputFile.read(4)
-            print(len(header))
-            print(header.decode("ascii"))
 
-            if not header.decode("ascii") in ["YM3!", "YM4!", "YM5!", "YM6!"]:
-                print("Invalid header in input file")
+            if not header in ["YM3!".encode("ascii"), "YM4!".encode("ascii"), "YM5!".encode("ascii"), "YM6!".encode("ascii")]:
+                print("ERROR: Invalid header in input file")
+                print("Make sure it's an uncompressed YM file, if you think this is a valid YM file, try to uncompress it and use the uncompressed file")
                 sys.exit(1)
-
-            checkString = inputFile.read(8).decode("ascii")
             
-            print(checkString)
+            print("Header:", header.decode("ascii"))
 
-            if checkString != "LeOnArD!":
-                print("Check string doesn't check out in input file")
+            checkString = inputFile.read(8)
+            
+            if checkString != "LeOnArD!".encode("ascii"):
+                print("ERROR: Check string doesn't check out in input file")
                 sys.exit(1)
 
             frameCount = struct.unpack(">i", inputFile.read(4))[0]
@@ -57,6 +56,9 @@ def processYMFile(inputFilename, outputFilename):
 
             temp = struct.unpack(">i", inputFile.read(4))[0]
             print("Song attributes:", temp)
+
+            if (temp & 1) != 1:
+                print("Error: Only interlaced YM files are supported.")
 
             temp = struct.unpack(">h", inputFile.read(2))[0]
             print("Digidrums samples:", temp)
@@ -103,21 +105,25 @@ def processYMFile(inputFilename, outputFilename):
             for i in range(frameCount):
 
                 anyChange = False
-                for j in range(16):
+                for j in range(14):
                     registerBytes[j] = frames[i * 16 + j]
 
-                    if i == 0 or lastRegisterBytes[j] != registerBytes[j]:
+                    # Always write values of register 13 because whenever it's written to
+                    # it resets the envelope wave
+                    if i == 0 or lastRegisterBytes[j] != registerBytes[j] or j == 13:
                         if not anyChange and i != 0:
                             # Write wait instruction
                             outputFile.write(bytes([16, lastChange]))
                             totalSize = totalSize + 2
 
                             lastChange = 0
-                            
-                        # Write register value
-                        outputFile.write(bytes([j, registerBytes[j]]))
-                        lastRegisterBytes[j] = registerBytes[j]
-                        totalSize = totalSize + 2
+                        
+                        # The value 255 for register 13 in a YM file is to be ignored
+                        if j != 13 or registerBytes[j] != 255:
+                            # Write register value
+                            outputFile.write(bytes([j, registerBytes[j]]))
+                            lastRegisterBytes[j] = registerBytes[j]
+                            totalSize = totalSize + 2
 
                         anyChange = True
                 
@@ -143,8 +149,11 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("No input file")
+        print()
         print("Usage:")
         print("python3 ymConverter.py inputFile [outputFile]")
+        print()
+        print("Note: the input file must be an uncompressed YM file in interlaced mode")
         sys.exit(1)
 
     inputFilename = sys.argv[1]
