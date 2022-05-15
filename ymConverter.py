@@ -59,6 +59,7 @@ def processYMFile(inputFilename, outputFilename):
 
             if (temp & 1) != 1:
                 print("Error: Only interlaced YM files are supported.")
+                sys.exit(1)
 
             temp = struct.unpack(">h", inputFile.read(2))[0]
             print("Digidrums samples:", temp)
@@ -115,7 +116,6 @@ def processYMFile(inputFilename, outputFilename):
                             # Write wait instruction
                             outputFile.write(bytes([16, lastChange]))
                             totalSize = totalSize + 2
-
                             lastChange = 0
                         
                         # The value 255 for register 13 in a YM file is to be ignored
@@ -124,8 +124,7 @@ def processYMFile(inputFilename, outputFilename):
                             outputFile.write(bytes([j, registerBytes[j]]))
                             lastRegisterBytes[j] = registerBytes[j]
                             totalSize = totalSize + 2
-
-                        anyChange = True
+                            anyChange = True
                 
                 if not anyChange:
                     lastChange = lastChange + 1
